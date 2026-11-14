@@ -1,0 +1,74 @@
+// Prisma Schema cho Note & Task AI System
+// Tham chiếu: PRD_BE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  name         String?    @db.VarChar(255)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  categories   Category[]
+  notes        Note[]
+  tasks        Task[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Quan hệ ngược tới Notes: 1 category có thể được user chọn cho nhiều notes, hoặc do AI gợi ý
+  notes       Note[]    @relation("UserSelectedCategory")
+  aiNotes     Note[]    @relation("AIGeneratedCategory")
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+model Note {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  categoryId   String?   @map("category_id") @db.Uuid
+  aiCategoryId String?   @map("ai_category_id") @db.Uuid
+  title        String?   @db.VarChar(255)
+  content      String    @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category? @relation("UserSelectedCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  aiCategory   Category? @relation("AIGeneratedCategory", fields: [aiCategoryId], references: [id], onDelete: SetNull)
+
+  @@map("notes")
+}
+
+model Task {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  deadline    DateTime  @db.Timestamptz
+  priority    String    @db.VarChar(50) // not_urgent | urgent | critical
+  aiPriority  String?   @map("ai_priority") @db.VarChar(50)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tasks")
+}
