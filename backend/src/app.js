@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const authRoutes = require('./routes/auth.routes');
 const categoryRoutes = require('./routes/category.routes');
+const noteRoutes = require('./routes/note.routes');
+const taskRoutes = require('./routes/task.routes');
+const aiRoutes = require('./routes/ai.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const AppError = require('./utils/appError');
 
@@ -26,6 +29,9 @@ app.get('/health', (req, res) => {
 // 5. Đăng ký các Route chính
 app.use('/auth', authRoutes);
 app.use('/categories', categoryRoutes);
+app.use('/notes', noteRoutes);
+app.use('/tasks', taskRoutes);
+app.use('/ai', aiRoutes);
 
 // 6. Xử lý Route không tồn tại (404)
 app.use((req, res, next) => {
