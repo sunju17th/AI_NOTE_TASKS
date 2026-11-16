@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "a9b8c7d6-e5f4-4321-abcd-ef0123456789",
-    "name": "Note & Task AI API Collection ",
-    "description": "\n\n✨ TÍNH NĂNG :\n1. Tự động Login lấy Token nếu chưa có.\n2. Tự động kiểm tra và tạo Danh mục hợp lệ trước khi tạo Note.\n3. Tự động lưu và truyền Token, categoryId, noteId, taskId giữa các request.",
+    "_postman_id": "c87a5540-f472-4e4b-97e3-task-note-ai-v2",
+    "name": "AI Note & Task Management API",
+    "description": "Bộ kiểm thử tự động toàn diện 100% cho hệ thống AI Note & Task Management API theo chuẩn PRD_BE.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -17,6 +17,11 @@
       "type": "string"
     },
     {
+      "key": "tokenB",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "categoryId",
       "value": "",
       "type": "string"
@@ -27,7 +32,42 @@
       "type": "string"
     },
     {
+      "key": "noteIdA",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "noteIdUncategorized",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "noteIdInCat",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskIdA",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deadline7d",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deadline2h",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "aiCategoryIdBefore",
       "value": "",
       "type": "string"
     }
@@ -37,14 +77,22 @@
       "listen": "prerequest",
       "script": {
         "exec": [
-          "// Tự động đăng nhập lấy Token nếu token đang trống",
-          "const baseUrl = pm.collectionVariables.get('baseUrl') || 'http://localhost:3000';",
+          "// 1. Tự động tính toán các mốc deadline động (now + 7 days và now + 2 hours)",
+          "const now = new Date();",
+          "const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();",
+          "const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();",
+          "pm.collectionVariables.set('deadline7d', in7Days);",
+          "pm.collectionVariables.set('deadline2h', in2Hours);",
+          "",
+          "// 2. Tự động đăng nhập lấy Token nếu token đang trống",
+          "const baseUrl = pm.environment.get('baseUrl') || pm.collectionVariables.get('baseUrl') || 'http://localhost:3000';",
           "const token = pm.collectionVariables.get('token');",
-          "const isAuthRequest = pm.request.url.getPath().includes('auth');",
-          "const isHealthRequest = pm.request.url.getPath().includes('health');",
+          "const path = pm.request.url.getPath();",
+          "const isAuthRequest = path.includes('auth');",
+          "const isHealthRequest = path.includes('health');",
           "",
           "if (!token && !isAuthRequest && !isHealthRequest) {",
-          "    console.log('⚡ Token đang trống, đang tự động đăng nhập...');",
+          "    console.log('⚡ Token đang trống, đang tự động đăng nhập User A...');",
           "    pm.sendRequest({",
           "        url: baseUrl + '/auth/login',",
           "        method: 'POST',",
@@ -54,7 +102,9 @@
           "            raw: JSON.stringify({ email: 'user@example.com', password: 'password123' })",
           "        }",
           "    }, function (err, res) {",
-          "        if (!err && res.code === 200) {",
+          "        if (err || res.code !== 200) {",
+          "            console.error('❌ Tự động đăng nhập thất bại:', err || res.text());",
+          "        } else {",
           "            const data = res.json();",
           "            pm.collectionVariables.set('token', data.token);",
           "            console.log('✅ Đã tự động lưu token mới!');",
@@ -80,8 +130,9 @@
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test('Status is ok', function () {",
-                  "    pm.expect(pm.response.json().status).to.eql('ok');",
+                  "pm.test('Health check trả về status OK', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.match(/^ok$/i);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -93,8 +144,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           }
         }
@@ -104,53 +162,23 @@
       "name": "1. Auth",
       "item": [
         {
-          "name": "1.1 Register (Đăng ký tài khoản)",
+          "name": "1.1 Register",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status code is 201 or 409 (nếu đã đăng ký)', function () {",
-                  "    pm.expect([201, 409]).to.include(pm.response.code);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Nguyễn Văn A\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
-            }
-          }
-        },
-        {
-          "name": "1.2 Login (Đăng nhập - Tự động nạp Token)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test('Status code is 201 or 409', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
                   "});",
-                  "const res = pm.response.json();",
-                  "if (res.token) {",
-                  "    pm.collectionVariables.set('token', res.token);",
-                  "    console.log('✅ Token đã lưu vào biến môi trường Postman');",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test('Nếu 201: Response chứa id, email và KHÔNG chứa password hay passwordHash', function () {",
+                  "        const data = pm.response.json();",
+                  "        pm.expect(data).to.have.property('id');",
+                  "        pm.expect(data).to.have.property('email', 'user@example.com');",
+                  "        pm.expect(data).to.not.have.property('password');",
+                  "        pm.expect(data).to.not.have.property('passwordHash');",
+                  "    });",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -165,19 +193,27 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
             }
           }
         },
         {
-          "name": "1.3 Get Me (Xem thông tin user hiện tại)",
+          "name": "1.2 Login",
           "event": [
             {
               "listen": "test",
@@ -185,6 +221,15 @@
                 "exec": [
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data.token) {",
+                  "    pm.collectionVariables.set('token', data.token);",
+                  "}",
+                  "pm.test('Assert token là chuỗi không rỗng, response không chứa password', function () {",
+                  "    pm.expect(data.token).to.be.a('string').and.not.empty;",
+                  "    pm.expect(data).to.not.have.property('password');",
+                  "    pm.expect(data).to.not.have.property('passwordHash');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -192,22 +237,229 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
               ]
             },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "1.3 Get Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert email đúng, không lộ password', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.email).to.eql('user@example.com');",
+                  "    pm.expect(data).to.not.have.property('password');",
+                  "    pm.expect(data).to.not.have.property('passwordHash');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.4 Login sai mật khẩu (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"wrong_password_xyz\"\n}"
+            }
+          }
+        },
+        {
+          "name": "1.5 Register email sai định dạng (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid-email-format\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "1.6 Register thiếu password (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nopassword@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "1.7 GET /auth/me không token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           }
         }
@@ -217,30 +469,21 @@
       "name": "2. Categories",
       "item": [
         {
-          "name": "2.1 Create Category (Tạo danh mục mới)",
+          "name": "2.1 Create Category",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "const res = pm.response.json();",
-                  "if (pm.response.code === 201 && res.id) {",
-                  "    pm.collectionVariables.set('categoryId', res.id);",
-                  "    console.log('✅ Đã lưu categoryId mới:', res.id);",
-                  "} else if (pm.response.code === 409) {",
-                  "    console.log('⚠️ Danh mục đã tồn tại, tự động lấy ID danh mục có sẵn...');",
-                  "    pm.sendRequest({",
-                  "        url: pm.collectionVariables.get('baseUrl') + '/categories',",
-                  "        method: 'GET',",
-                  "        header: { 'Authorization': 'Bearer ' + pm.collectionVariables.get('token') }",
-                  "    }, function (err, catRes) {",
-                  "        if (!err && catRes.code === 200) {",
-                  "            const list = catRes.json();",
-                  "            if (list.length > 0) {",
-                  "                pm.collectionVariables.set('categoryId', list[0].id);",
-                  "                console.log('✅ Đã cập nhật categoryId có sẵn:', list[0].id);",
-                  "            }",
-                  "        }",
+                  "pm.test('Status code is 201 or 409', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (pm.response.code === 201 && data && data.id) {",
+                  "    pm.collectionVariables.set('categoryId', data.id);",
+                  "    pm.test('Assert name và description khớp', function () {",
+                  "        pm.expect(data.name).to.eql('Lập trình Backend');",
+                  "        pm.expect(data.description).to.eql('Kiến thức Node.js, Express, PostgreSQL, Prisma, AI');",
                   "    });",
                   "}"
                 ],
@@ -249,36 +492,118 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Lập trình Backend\",\n  \"description\": \"Kiến thức Node.js, Express, PostgreSQL, Prisma, AI\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories"]
             }
           }
         },
         {
-          "name": "2.2 Get Categories (Lấy danh sách danh mục & Tự động lưu ID)",
+          "name": "2.1b Tạo trùng tên (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lập trình Backend\",\n  \"description\": \"Thử tạo trùng tên danh mục\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.1c Tạo thiếu name (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Danh mục không có name\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.2 Get Categories",
           "event": [
             {
               "listen": "test",
@@ -287,67 +612,18 @@
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "const res = pm.response.json();",
-                  "if (Array.isArray(res) && res.length > 0) {",
-                  "    pm.collectionVariables.set('categoryId', res[0].id);",
-                  "    console.log('✅ Đã cập nhật categoryId hợp lệ của user:', res[0].id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories"]
-            }
-          }
-        },
-        {
-          "name": "2.3 Update Category (Sửa tên & mô tả)",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "// Đảm bảo có categoryId trước khi chạy",
-                  "const catId = pm.collectionVariables.get('categoryId');",
-                  "if (!catId) {",
-                  "    const baseUrl = pm.collectionVariables.get('baseUrl') || 'http://localhost:3000';",
-                  "    pm.sendRequest({",
-                  "        url: baseUrl + '/categories',",
-                  "        method: 'GET',",
-                  "        header: { 'Authorization': 'Bearer ' + pm.collectionVariables.get('token') }",
-                  "    }, function (err, res) {",
-                  "        if (!err && res.code === 200 && res.json().length > 0) {",
-                  "            pm.collectionVariables.set('categoryId', res.json()[0].id);",
-                  "        }",
+                  "const data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    const found = data.find(c => c.name && c.name.includes('Lập trình'));",
+                  "    pm.collectionVariables.set('categoryId', found ? found.id : data[0].id);",
+                  "}",
+                  "pm.test('Assert response là mảng, mỗi phần tử có id và name', function () {",
+                  "    pm.expect(data).to.be.an('array');",
+                  "    pm.expect(data.length).to.be.greaterThan(0);",
+                  "    data.forEach(function (c) {",
+                  "        pm.expect(c).to.have.property('id');",
+                  "        pm.expect(c).to.have.property('name');",
                   "    });",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -355,41 +631,168 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
               ]
-            },
+            }
+          }
+        },
+        {
+          "name": "2.3 Update Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Biến categoryId không được rỗng', function () {",
+                  "    const catId = pm.collectionVariables.get('categoryId');",
+                  "    pm.expect(catId, 'categoryId phải có giá trị từ bước trước').to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert name trong response đúng tên mới', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.name).to.eql('Lập trình Backend & Cloud');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "PUT",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Lập trình Backend & Cloud\",\n  \"description\": \"Kiến thức phát triển phần mềm, CSDL và hệ thống đám mây\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/categories/{{categoryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories", "{{categoryId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lập trình Backend & Cloud\",\n  \"description\": \"Cập nhật mô tả danh mục\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.4 Sửa danh mục với uuid không tồn tại (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Non-existent Category\",\n  \"description\": \"Not found test\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.5 Sửa danh mục với id sai định dạng abc (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 (Không được trả về 500)', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "abc"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Malformed ID\",\n  \"description\": \"Bad request test\"\n}"
             }
           }
         }
       ]
     },
     {
-      "name": "3. AI Assistants",
+      "name": "3. AI",
       "item": [
         {
-          "name": "3.1 POST /ai/classify-note (Khớp danh mục có sẵn)",
+          "name": "3.1 classify-note (khớp)",
           "event": [
             {
               "listen": "test",
@@ -398,10 +801,13 @@
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "const res = pm.response.json();",
-                  "pm.test('Phải có trường category_id và reason', function () {",
-                  "    pm.expect(res).to.have.property('category_id');",
-                  "    pm.expect(res).to.have.property('reason');",
+                  "pm.test('Assert category_id là null hoặc chuỗi, reason là chuỗi', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('reason');",
+                  "    pm.expect(data.reason).to.be.a('string').and.not.empty;",
+                  "    if (data.category_id !== null) {",
+                  "        pm.expect(data.category_id).to.be.a('string');",
+                  "    }",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -409,36 +815,35 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Tìm hiểu về Index trong PostgreSQL\",\n  \"content\": \"B-tree index giúp tăng tốc độ tìm kiếm các câu lệnh WHERE và ORDER BY trong cơ sở dữ liệu quan hệ.\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/ai/classify-note",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "classify-note"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "classify-note"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Index trong PostgreSQL\",\n  \"content\": \"Tối ưu hóa truy vấn SQL bằng B-Tree Index và Composite Index trên PostgreSQL.\"\n}"
             }
           }
         },
         {
-          "name": "3.2 POST /ai/classify-note (Chưa có danh mục -> Gợi ý tạo mới)",
+          "name": "3.2 classify-note (chưa có danh mục)",
           "event": [
             {
               "listen": "test",
@@ -447,9 +852,12 @@
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "const res = pm.response.json();",
-                  "pm.test('Phải có trường suggested_new_category', function () {",
-                  "    pm.expect(res).to.have.property('suggested_new_category');",
+                  "pm.test('Assert category_id là null và suggested_new_category có tên (chuỗi không rỗng)', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.category_id).to.be.null;",
+                  "    pm.expect(data).to.have.property('suggested_new_category');",
+                  "    pm.expect(data.suggested_new_category).to.be.an('object');",
+                  "    pm.expect(data.suggested_new_category.name).to.be.a('string').and.not.empty;",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -457,36 +865,35 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Công thức làm sốt Pizza Hải Sản\",\n  \"content\": \"Cà chua tươi, tỏi phi thơm, phô mai Mozzarella và hải sản tôm mực nướng nhiệt độ 200 độ C.\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/ai/classify-note",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "classify-note"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "classify-note"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bí quyết nấu phở bò gia truyền\",\n  \"content\": \"Chuẩn bị hoa hồi, quế, thảo quả nướng thơm, ninh xương bò trong 10 tiếng để nước dùng thanh ngọt.\"\n}"
             }
           }
         },
         {
-          "name": "3.3 POST /ai/assess-task (Đánh giá độ khẩn cấp Task)",
+          "name": "3.3 assess-task (deadline 7 ngày)",
           "event": [
             {
               "listen": "test",
@@ -495,9 +902,12 @@
                   "pm.test('Status code is 200', function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "const res = pm.response.json();",
-                  "pm.test('Priority phải thuộc: not_urgent, urgent, critical', function () {",
-                  "    pm.expect(['not_urgent', 'urgent', 'critical']).to.include(res.priority);",
+                  "pm.test('Assert có priority và reason là chuỗi', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('priority');",
+                  "    pm.expect(['critical', 'urgent', 'normal', 'not_urgent']).to.include(data.priority);",
+                  "    pm.expect(data).to.have.property('reason');",
+                  "    pm.expect(data.reason).to.be.a('string').and.not.empty;",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -505,31 +915,206 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Nộp báo cáo đồ án tốt nghiệp bản PDF\",\n  \"description\": \"Gửi bản cuối cùng cho hội đồng chấm thi\",\n  \"deadline\": \"2026-11-20T17:00:00+07:00\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/ai/assess-task",
-              "host": ["{{baseUrl}}"],
-              "path": ["ai", "assess-task"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "assess-task"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Nghiên cứu tài liệu hệ thống phân tán\",\n  \"deadline\": \"{{deadline7d}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3.4 assess-task (deadline 2 giờ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert priority khác not_urgent (luật cứng deadline < 24 giờ)', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.priority).to.be.oneOf(['critical', 'urgent']);",
+                  "    pm.expect(data.priority).to.not.eql('not_urgent');",
+                  "    pm.expect(data.reason).to.be.a('string').and.not.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/assess-task",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "assess-task"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Nộp báo cáo tài chính gấp cho hội đồng quản trị\",\n  \"deadline\": \"{{deadline2h}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3.5 classify-note thiếu content (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/classify-note",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "classify-note"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tiêu đề không có nội dung\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3.6a classify-note không token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/classify-note",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "classify-note"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test AI\",\n  \"content\": \"Nội dung test không có token\"\n}"
+            }
+          }
+        },
+        {
+          "name": "3.6b assess-task không token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/assess-task",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "assess-task"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Task AI\",\n  \"deadline\": \"{{deadline7d}}\"\n}"
             }
           }
         }
@@ -539,7 +1124,7 @@
       "name": "4. Notes",
       "item": [
         {
-          "name": "4.1 Create Note (Chưa phân loại - category_id: null)",
+          "name": "4.1 Create (chưa phân loại)",
           "event": [
             {
               "listen": "test",
@@ -548,151 +1133,13 @@
                   "pm.test('Status code is 201', function () {",
                   "    pm.response.to.have.status(201);",
                   "});",
-                  "const res = pm.response.json();",
-                  "if (res.id) {",
-                  "    pm.collectionVariables.set('noteId', res.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Ý tưởng dự án ngẫu hứng\",\n  \"content\": \"Chưa biết xếp vào danh mục nào nên lưu tạm thời vào mục chưa phân loại.\",\n  \"category_id\": null,\n  \"ai_category_id\": null\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/notes",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes"]
-            }
-          }
-        },
-        {
-          "name": "4.2 Create Note (Lưu ghi chú CÓ danh mục - Tự động bảo vệ 100%)",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "// BẢO VỆ 100%: Luôn đảm bảo categoryId hợp lệ trước khi gửi",
-                  "const baseUrl = pm.collectionVariables.get('baseUrl') || 'http://localhost:3000';",
-                  "const token = pm.collectionVariables.get('token');",
-                  "",
-                  "if (token) {",
-                  "    pm.sendRequest({",
-                  "        url: baseUrl + '/categories',",
-                  "        method: 'GET',",
-                  "        header: { 'Authorization': 'Bearer ' + token }",
-                  "    }, function (err, res) {",
-                  "        if (!err && res.code === 200) {",
-                  "            const list = res.json();",
-                  "            if (Array.isArray(list) && list.length > 0) {",
-                  "                pm.collectionVariables.set('categoryId', list[0].id);",
-                  "                console.log('✅ Đã gán categoryId hợp lệ:', list[0].id);",
-                  "            } else {",
-                  "                // Nếu user chưa có danh mục nào -> Tự tạo ngay 1 danh mục!",
-                  "                pm.sendRequest({",
-                  "                    url: baseUrl + '/categories',",
-                  "                    method: 'POST',",
-                  "                    header: {",
-                  "                        'Content-Type': 'application/json',",
-                  "                        'Authorization': 'Bearer ' + token",
-                  "                    },",
-                  "                    body: {",
-                  "                        mode: 'raw',",
-                  "                        raw: JSON.stringify({",
-                  "                            name: 'Lập trình Backend',",
-                  "                            description: 'Tài liệu học Backend'",
-                  "                        })",
-                  "                    }",
-                  "                }, function (cErr, cRes) {",
-                  "                    if (!cErr && cRes.code === 201) {",
-                  "                        pm.collectionVariables.set('categoryId', cRes.json().id);",
-                  "                        console.log('✅ Đã tự tạo category mới:', cRes.json().id);",
-                  "                    }",
-                  "                });",
-                  "            }",
-                  "        }",
-                  "    });",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "const res = pm.response.json();",
-                  "if (res.id) {",
-                  "    pm.collectionVariables.set('noteId', res.id);",
-                  "    console.log('✅ Note đã tạo với ID:', res.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Tìm hiểu về Index trong PostgreSQL\",\n  \"content\": \"B-tree index giúp tăng tốc độ tìm kiếm các câu lệnh WHERE và ORDER BY trong cơ sở dữ liệu quan hệ.\",\n  \"category_id\": \"{{categoryId}}\",\n  \"ai_category_id\": \"{{categoryId}}\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/notes",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes"]
-            }
-          }
-        },
-        {
-          "name": "4.3 Get Notes (Tất cả, phân trang)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('noteIdUncategorized', data.id);",
+                  "}",
+                  "pm.test('Assert category_id là null, lưu vào noteIdUncategorized', function () {",
+                  "    pm.expect(data.category_id).to.be.null;",
+                  "    pm.expect(data).to.have.property('id');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -700,163 +1147,701 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
               ]
             },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Ý tưởng khởi nghiệp AI Platform\",\n  \"content\": \"Ghi chú tự do cần lưu trữ ngay, chưa quyết định danh mục cụ thể.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4.2 Create (có danh mục)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Biến categoryId phải có giá trị', function () {",
+                  "    const catId = pm.collectionVariables.get('categoryId');",
+                  "    pm.expect(catId, 'categoryId không được rỗng').to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('noteId', data.id);",
+                  "    pm.collectionVariables.set('aiCategoryIdBefore', data.ai_category_id || data.aiCategoryId);",
+                  "}",
+                  "pm.test('Assert category_id và ai_category_id đều bằng categoryId, lưu aiCategoryIdBefore', function () {",
+                  "    const expectedCatId = pm.collectionVariables.get('categoryId');",
+                  "    pm.expect(data.category_id).to.eql(expectedCatId);",
+                  "    pm.expect(data.ai_category_id).to.eql(expectedCatId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tìm hiểu về Index trong PostgreSQL\",\n  \"content\": \"B-tree index giúp tăng tốc độ tìm kiếm các câu lệnh WHERE và ORDER BY trong cơ sở dữ liệu quan hệ.\",\n  \"category_id\": \"{{categoryId}}\",\n  \"ai_category_id\": \"{{categoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4.3 Get Notes (phân trang)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert có danh sách, thông tin phân trang, số phần tử không vượt 20', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('data');",
+                  "    pm.expect(data).to.have.property('pagination');",
+                  "    pm.expect(data.data).to.be.an('array');",
+                  "    pm.expect(data.data.length).to.be.at.most(20);",
+                  "    pm.expect(data.pagination).to.have.property('page', 1);",
+                  "    pm.expect(data.pagination).to.have.property('limit', 20);",
+                  "    pm.expect(data.pagination).to.have.property('total');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/notes?page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ],
               "query": [
                 {
                   "key": "page",
-                  "value": "1"
+                  "value": "1",
+                  "description": ""
                 },
                 {
                   "key": "limit",
-                  "value": "20"
+                  "value": "20",
+                  "description": ""
                 }
               ]
             }
           }
         },
         {
-          "name": "4.4 Get Notes (Tìm kiếm văn bản ?q=PostgreSQL)",
+          "name": "4.4 Tìm kiếm ?q=",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status 200, danh sách không rỗng, mỗi phần tử chứa postgresql trong title hoặc content', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    pm.expect(items.length).to.be.greaterThan(0);",
+                  "    items.forEach(function (n) {",
+                  "        const title = (n.title || '').toLowerCase();",
+                  "        const content = (n.content || '').toLowerCase();",
+                  "        pm.expect(title.includes('postgresql') || content.includes('postgresql')).to.be.true;",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/notes?q=PostgreSQL",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes"],
+              "raw": "{{baseUrl}}/notes?q=postgresql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ],
               "query": [
                 {
                   "key": "q",
-                  "value": "PostgreSQL"
+                  "value": "postgresql",
+                  "description": ""
                 }
               ]
             }
           }
         },
         {
-          "name": "4.5 Get Notes (Lọc chưa phân loại ?category_id=none)",
+          "name": "4.5 Lọc category_id=none",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status 200, mọi phần tử có category_id là null', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    items.forEach(function (n) {",
+                  "        pm.expect(n.category_id).to.be.null;",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/notes?category_id=none",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ],
               "query": [
                 {
                   "key": "category_id",
-                  "value": "none"
+                  "value": "none",
+                  "description": ""
                 }
               ]
             }
           }
         },
         {
-          "name": "4.6 Get Note Detail (Chi tiết một ghi chú)",
+          "name": "4.5b Lọc ?category_id={{categoryId}}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Mọi phần tử đúng danh mục categoryId', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    const catId = pm.collectionVariables.get('categoryId');",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    items.forEach(function (n) {",
+                  "        pm.expect(n.category_id).to.eql(catId);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes?category_id={{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ],
+              "query": [
                 {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
+                  "key": "category_id",
+                  "value": "{{categoryId}}",
+                  "description": ""
                 }
               ]
-            },
+            }
+          }
+        },
+        {
+          "name": "4.6 Get Note Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status 200, id khớp noteId, có title và content', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.id).to.eql(pm.collectionVariables.get('noteId'));",
+                  "    pm.expect(data).to.have.property('title');",
+                  "    pm.expect(data).to.have.property('content');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/notes/{{noteId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes", "{{noteId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteId}}"
+              ]
             }
           }
         },
         {
-          "name": "4.7 Update Note (Sửa ghi chú)",
+          "name": "4.7 Update Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status 200, title và content đã đổi, ai_category_id vẫn bằng aiCategoryIdBefore', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.title).to.eql('Tìm hiểu về B-Tree Index trong PostgreSQL nâng cao');",
+                  "    pm.expect(data.content).to.eql('Nội dung đã được cập nhật: Thêm phần GiST và GIN index phục vụ Full Text Search.');",
+                  "    const before = pm.collectionVariables.get('aiCategoryIdBefore');",
+                  "    pm.expect(data.ai_category_id).to.eql(before);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "PUT",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Tìm hiểu về Index trong PostgreSQL (Đã cập nhật)\",\n  \"content\": \"B-tree index giúp tăng tốc độ tìm kiếm. Nên chú ý đánh index trên các cột có tính chọn lọc cao (high cardinality).\"\n}"
-            },
             "url": {
               "raw": "{{baseUrl}}/notes/{{noteId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes", "{{noteId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tìm hiểu về B-Tree Index trong PostgreSQL nâng cao\",\n  \"content\": \"Nội dung đã được cập nhật: Thêm phần GiST và GIN index phục vụ Full Text Search.\"\n}"
             }
           }
         },
         {
-          "name": "4.8 Delete Note (Xóa ghi chú)",
+          "name": "4.7b Sửa note với category_id: null",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert note về chưa phân loại (category_id là null)', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.category_id).to.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "DELETE",
-            "header": [],
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/notes/{{noteId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["notes", "{{noteId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "4.8 Delete Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.9 GET lại note vừa xóa (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.10 Tạo note thiếu content (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Note chỉ có title mà không có content\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4.11 Tạo note với category_id không tồn tại (400/404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 or 404', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Note gắn category ma\",\n  \"content\": \"Nội dung bài viết\",\n  \"category_id\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "4.12 GET /notes/abc id sai định dạng (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 (Không được 500)', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "abc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.13 ?limit=1000 (giới hạn tối đa 50 hoặc 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code 200 (limit được chuẩn hóa <= 50) hoặc 400', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                  "    if (pm.response.code === 200) {",
+                  "        const data = pm.response.json();",
+                  "        if (data.pagination) {",
+                  "            pm.expect(data.pagination.limit).to.be.at.most(50);",
+                  "        }",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes?limit=1000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1000",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.14 Xóa noteIdUncategorized (dọn dẹp)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204 or 404', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([204, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdUncategorized}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdUncategorized}}"
+              ]
             }
           }
         }
@@ -866,7 +1851,7 @@
       "name": "5. Tasks",
       "item": [
         {
-          "name": "5.1 Create Task (Tạo nhiệm vụ mới)",
+          "name": "5.1 Create Task 1",
           "event": [
             {
               "listen": "test",
@@ -875,9 +1860,545 @@
                   "pm.test('Status code is 201', function () {",
                   "    pm.response.to.have.status(201);",
                   "});",
-                  "const res = pm.response.json();",
-                  "if (res.id) {",
-                  "    pm.collectionVariables.set('taskId', res.id);",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('taskId', data.id);",
+                  "}",
+                  "pm.test('Assert priority là urgent, có ai_priority và deadline', function () {",
+                  "    pm.expect(data.priority).to.eql('urgent');",
+                  "    pm.expect(data).to.have.property('ai_priority');",
+                  "    pm.expect(data).to.have.property('deadline');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hoàn thiện Module AI Task\",\n  \"deadline\": \"{{deadline7d}}\",\n  \"priority\": \"urgent\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5.1b Create Task 2 (đảm bảo >= 2 tasks để test sort)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Nộp báo cáo tiến độ gấp\",\n  \"deadline\": \"{{deadline2h}}\",\n  \"priority\": \"critical\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5.2 Sort deadline (tăng dần)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert danh sách tăng dần theo deadline', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    pm.expect(items.length).to.be.at.least(2);",
+                  "    for (let i = 0; i < items.length - 1; i++) {",
+                  "        if (items[i].deadline && items[i + 1].deadline) {",
+                  "            pm.expect(new Date(items[i].deadline).getTime()).to.be.at.most(new Date(items[i + 1].deadline).getTime());",
+                  "        }",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?sort=deadline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "deadline",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.2b Sort -deadline (giảm dần)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert danh sách giảm dần theo deadline', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    pm.expect(items.length).to.be.at.least(2);",
+                  "    for (let i = 0; i < items.length - 1; i++) {",
+                  "        if (items[i].deadline && items[i + 1].deadline) {",
+                  "            pm.expect(new Date(items[i].deadline).getTime()).to.be.at.least(new Date(items[i + 1].deadline).getTime());",
+                  "        }",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?sort=-deadline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "-deadline",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.3 Lọc priority=urgent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Danh sách không rỗng và mọi phần tử có priority === urgent', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    pm.expect(items).to.be.an('array');",
+                  "    pm.expect(items.length).to.be.greaterThan(0);",
+                  "    items.forEach(function (t) {",
+                  "        pm.expect(t.priority).to.eql('urgent');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?priority=urgent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "priority",
+                  "value": "urgent",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.4 Get Task Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status 200, id khớp taskId', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.id).to.eql(pm.collectionVariables.get('taskId'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.5 Update Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert priority là critical, deadline không bị mất', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.priority).to.eql('critical');",
+                  "    pm.expect(data.title).to.eql('Hoàn thiện Module AI Task (Mức độ khẩn)');",
+                  "    pm.expect(data.deadline).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hoàn thiện Module AI Task (Mức độ khẩn)\",\n  \"priority\": \"critical\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5.6 Delete Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.7 GET lại task vừa xóa (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.8 Tạo task priority sai (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Task priority không hợp lệ\",\n  \"deadline\": \"{{deadline7d}}\",\n  \"priority\": \"abc\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5.9 Tạo task deadline sai định dạng (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Task deadline không phải ISO\",\n  \"deadline\": \"abc\",\n  \"priority\": \"urgent\"\n}"
+            }
+          }
+        },
+        {
+          "name": "5.10 Tạo task thiếu title (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deadline\": \"{{deadline7d}}\",\n  \"priority\": \"urgent\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Phân quyền",
+      "item": [
+        {
+          "name": "7.0a User A tạo note để test phân quyền",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('noteIdA', data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -885,16 +2406,94 @@
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
               ]
             },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Ghi chú bảo mật của User A\",\n  \"content\": \"Dữ liệu riêng tư không thể để User B truy cập.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.0b User A tạo task để test phân quyền",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('taskIdA', data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Công việc bảo mật của User A\",\n  \"deadline\": \"{{deadline7d}}\",\n  \"priority\": \"urgent\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.1 Register User B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 or 409', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "POST",
             "header": [
               {
@@ -902,145 +2501,621 @@
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Nộp báo cáo đồ án tốt nghiệp\",\n  \"description\": \"Bản PDF gửi qua email cho thầy hướng dẫn\",\n  \"deadline\": \"2026-11-20T17:00:00+07:00\",\n  \"priority\": \"urgent\",\n  \"ai_priority\": \"urgent\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/tasks",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks"]
+              "raw": "{\n  \"email\": \"b@example.com\",\n  \"password\": \"password123\"\n}"
             }
           }
         },
         {
-          "name": "5.2 Get Tasks (Sắp xếp theo deadline tăng dần)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/tasks?sort=deadline",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks"],
-              "query": [
-                {
-                  "key": "sort",
-                  "value": "deadline"
-                }
-              ]
+          "name": "7.2 Login User B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.token) {",
+                  "    pm.collectionVariables.set('tokenB', data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
             }
-          }
-        },
-        {
-          "name": "5.3 Get Tasks (Lọc theo priority=urgent)",
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/tasks?priority=urgent",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks"],
-              "query": [
-                {
-                  "key": "priority",
-                  "value": "urgent"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "5.4 Get Task Detail (Chi tiết nhiệm vụ)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/tasks/{{taskId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks", "{{taskId}}"]
-            }
-          }
-        },
-        {
-          "name": "5.5 Update Task (Sửa nhiệm vụ)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PUT",
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Nộp báo cáo đồ án tốt nghiệp (Bản cuối)\",\n  \"priority\": \"critical\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/tasks/{{taskId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks", "{{taskId}}"]
+              "raw": "{\n  \"email\": \"b@example.com\",\n  \"password\": \"password123\"\n}"
             }
           }
         },
         {
-          "name": "5.6 Delete Task (Xóa nhiệm vụ)",
+          "name": "7.3 B GET /notes/{{noteIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không xem được note của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdA}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.4 B PUT /notes/{{noteIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không sửa được note của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdA}}"
               ]
             },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"B cố tình can thiệp sửa note của A\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.5 B DELETE /notes/{{noteIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không xóa được note của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
             "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdA}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.6 B GET /notes không chứa noteIdA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Danh sách notes của B không chứa noteIdA', function () {",
+                  "    const res = pm.response.json();",
+                  "    const items = res.data || res;",
+                  "    const noteIdA = pm.collectionVariables.get('noteIdA');",
+                  "    const found = items.some(n => n.id === noteIdA);",
+                  "    pm.expect(found, 'User B không được thấy note của User A trong danh sách').to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.7a B GET /tasks/{{taskIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không xem được task của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskIdA}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.7b B PUT /tasks/{{taskIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không sửa được task của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskIdA}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"B cố tình sửa task của A\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.7c B DELETE /tasks/{{taskIdA}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không xóa được task của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskIdA}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.8a B PUT /categories/{{categoryId}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không sửa được category của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"B can thiệp category của A\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.8b B DELETE /categories/{{categoryId}} (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 (B không xóa được category của A)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.9 B tạo note với category_id của A (từ chối 400/404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 or 404 (Không thể dùng category của user khác)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"B cố dùng category của A\",\n  \"content\": \"Nội dung\",\n  \"category_id\": \"{{categoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "7.10a Không token: GET /notes (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/tasks/{{taskId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["tasks", "{{taskId}}"]
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "7.10b Không token: GET /tasks (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "7.10c Không token: GET /categories (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "7.11a Dọn dẹp noteIdA của User A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdA}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.11b Dọn dẹp taskIdA của User A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskIdA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskIdA}}"
+              ]
             }
           }
         }
@@ -1050,7 +3125,53 @@
       "name": "6. Clean Up (Xóa danh mục - Chạy cuối cùng)",
       "item": [
         {
-          "name": "6.1 Delete Category (Xóa danh mục)",
+          "name": "6.0 Tạo note gắn categoryId (test SetNull)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.id) {",
+                  "    pm.collectionVariables.set('noteIdInCat', data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Ghi chú kiểm tra ràng buộc onDelete SetNull\",\n  \"content\": \"Ghi chú này gắn categoryId để kiểm tra hành vi SetNull khi danh mục bị xóa.\",\n  \"category_id\": \"{{categoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "6.1 Delete Category",
           "event": [
             {
               "listen": "test",
@@ -1058,30 +3179,103 @@
                 "exec": [
                   "pm.test('Status code is 204', function () {",
                   "    pm.response.to.have.status(204);",
-                  "});",
-                  "pm.collectionVariables.set('categoryId', '');"
+                  "});"
                 ],
                 "type": "text/javascript"
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/categories/{{categoryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["categories", "{{categoryId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{categoryId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.2 GET /notes/{{noteIdInCat}} assert category_id là null (SetNull)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Assert category_id chuyển thành null sau khi danh mục bị xóa', function () {",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data.category_id).to.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdInCat}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdInCat}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6.3 Dọn dẹp noteIdInCat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notes/{{noteIdInCat}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notes",
+                "{{noteIdInCat}}"
+              ]
             }
           }
         }
