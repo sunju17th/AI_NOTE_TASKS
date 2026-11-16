@@ -23,7 +23,7 @@ app.use(express.json());
 
 // 4. Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // 5. Đăng ký các Route chính

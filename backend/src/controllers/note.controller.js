@@ -3,6 +3,20 @@ const AppError = require('../utils/appError');
 const { createNoteSchema, updateNoteSchema, queryNoteSchema } = require('../validations/note.validation');
 
 /**
+ * Chuẩn hóa response Note để hỗ trợ cả snake_case (PRD/Postman) và camelCase (Frontend)
+ */
+const formatNote = (note) => {
+  if (!note) return null;
+  return {
+    ...note,
+    category_id: note.categoryId,
+    categoryId: note.categoryId,
+    ai_category_id: note.aiCategoryId,
+    aiCategoryId: note.aiCategoryId,
+  };
+};
+
+/**
  * Lấy danh sách ghi chú có tìm kiếm, lọc danh mục và phân trang
  * GET /notes
  */
@@ -52,7 +66,7 @@ const getNotes = async (req, res, next) => {
     ]);
 
     return res.status(200).json({
-      data: notes,
+      data: notes.map(formatNote),
       pagination: {
         page,
         limit,
@@ -93,7 +107,7 @@ const getNoteById = async (req, res, next) => {
       throw new AppError('Không tìm thấy ghi chú', 404, 'NOT_FOUND');
     }
 
-    return res.status(200).json(note);
+    return res.status(200).json(formatNote(note));
   } catch (error) {
     next(error);
   }
@@ -146,7 +160,7 @@ const createNote = async (req, res, next) => {
       },
     });
 
-    return res.status(201).json(newNote);
+    return res.status(201).json(formatNote(newNote));
   } catch (error) {
     next(error);
   }
@@ -202,7 +216,7 @@ const updateNote = async (req, res, next) => {
       },
     });
 
-    return res.status(200).json(updatedNote);
+    return res.status(200).json(formatNote(updatedNote));
   } catch (error) {
     next(error);
   }

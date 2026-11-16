@@ -3,6 +3,18 @@ const AppError = require('../utils/appError');
 const { createTaskSchema, updateTaskSchema, queryTaskSchema } = require('../validations/task.validation');
 
 /**
+ * Chuẩn hóa response Task để hỗ trợ cả snake_case (PRD/Postman) và camelCase (Frontend)
+ */
+const formatTask = (task) => {
+  if (!task) return null;
+  return {
+    ...task,
+    ai_priority: task.aiPriority,
+    aiPriority: task.aiPriority,
+  };
+};
+
+/**
  * Lấy danh sách nhiệm vụ có lọc theo priority, sắp xếp deadline và phân trang
  * GET /tasks
  */
@@ -40,7 +52,7 @@ const getTasks = async (req, res, next) => {
     ]);
 
     return res.status(200).json({
-      data: tasks,
+      data: tasks.map(formatTask),
       pagination: {
         page,
         limit,
@@ -72,7 +84,7 @@ const getTaskById = async (req, res, next) => {
       throw new AppError('Không tìm thấy nhiệm vụ', 404, 'NOT_FOUND');
     }
 
-    return res.status(200).json(task);
+    return res.status(200).json(formatTask(task));
   } catch (error) {
     next(error);
   }
@@ -97,7 +109,7 @@ const createTask = async (req, res, next) => {
       },
     });
 
-    return res.status(201).json(newTask);
+    return res.status(201).json(formatTask(newTask));
   } catch (error) {
     next(error);
   }
@@ -135,7 +147,7 @@ const updateTask = async (req, res, next) => {
       },
     });
 
-    return res.status(200).json(updatedTask);
+    return res.status(200).json(formatTask(updatedTask));
   } catch (error) {
     next(error);
   }

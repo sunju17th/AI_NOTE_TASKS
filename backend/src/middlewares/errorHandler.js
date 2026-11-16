@@ -20,12 +20,13 @@ const errorHandler = (err, req, res, next) => {
   let details = err.details || null;
 
   // 1. Xử lý lỗi validate dữ liệu từ Zod
-  if (err instanceof ZodError) {
+  if (err instanceof ZodError || err.name === 'ZodError') {
     statusCode = 400;
     code = 'VALIDATION_ERROR';
     message = 'Dữ liệu không hợp lệ';
-    details = err.errors.map((e) => ({
-      field: e.path.join('.'),
+    const issues = err.issues || err.errors || [];
+    details = issues.map((e) => ({
+      field: e.path ? e.path.join('.') : '',
       message: e.message,
     }));
   }

@@ -8,6 +8,40 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
 /**
+ * Gọi Gemini với cơ chế tự động thử lại (Retry) và Fallback qua các model flash khác
+ * nếu model chính gặp lỗi tạm thời (503 High Demand hoặc Timeout).
+ */
+const generateJsonContent = async (prompt) => {
+  const models = [MODEL_NAME, 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      const responsePromise = ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI_TIMEOUT')), 25000)
+      );
+
+      const result = await Promise.race([responsePromise, timeoutPromise]);
+      return result.text?.trim() || '{}';
+    } catch (err) {
+      console.warn(`⚠️ [AI RETRY] Model ${model} gặp lỗi:`, err.message || err);
+      lastError = err;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+  }
+
+  throw lastError;
+};
+
+/**
  * Gợi ý danh mục phù hợp cho Note dựa trên danh sách categories của user.
  * Nếu không có danh mục phù hợp (hoặc user chưa có danh mục nào),
  * AI sẽ đề xuất tạo một danh mục mới mang tính khái quát (suggested_new_category).
@@ -65,20 +99,7 @@ QUY TẮC PHÂN LOẠI:
 `.trim();
 
   try {
-    const responsePromise = ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI_TIMEOUT')), 10000)
-    );
-
-    const result = await Promise.race([responsePromise, timeoutPromise]);
-    const rawText = result.text?.trim() || '{}';
+    const rawText = await generateJsonContent(prompt);
     const parsed = JSON.parse(rawText);
 
     if (parsed.category_id && categories.length > 0) {
@@ -94,10 +115,17 @@ QUY TẮC PHÂN LOẠI:
       }
     }
 
+    let suggested = parsed.suggested_new_category || null;
+    if (suggested && typeof suggested === 'string') {
+      suggested = { name: suggested, description: 'Danh mục gợi ý bởi AI' };
+    } else if (!suggested) {
+      suggested = { name: 'Chung & Đời sống', description: 'Ghi chú tổng hợp' };
+    }
+
     return {
       category_id: null,
       category_name: null,
-      suggested_new_category: parsed.suggested_new_category || null,
+      suggested_new_category: suggested,
       confidence: parsed.confidence || 'low',
       reason: parsed.reason || 'Nội dung chưa khớp với danh mục nào có sẵn',
     };
@@ -172,20 +200,7 @@ QUY TẮC BẮT BUỘC:
 `.trim();
 
   try {
-    const responsePromise = ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI_TIMEOUT')), 10000)
-    );
-
-    const result = await Promise.race([responsePromise, timeoutPromise]);
-    const rawText = result.text?.trim() || '{}';
+    const rawText = await generateJsonContent(prompt);
     const parsed = JSON.parse(rawText);
 
     let finalPriority = parsed.priority || 'not_urgent';
