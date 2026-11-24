@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "0f2c5e63-b8df-443b-9a9b-90d1d5704005",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\candidate.json",
+  "output": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\note-task-ai.html",
+  "specification": {
+    "sha256": "c49ca2671c45a82e018698d6cf5ac22e88718a99568f5cb2563ded148fc14116",
+    "bytes": 6137
+  },
+  "artifact": {
+    "sha256": "9888c9a40263fa45d5fadf954b47aea20a5575253af0e726b89da18aaf590964",
+    "bytes": 940994
+  }
+}

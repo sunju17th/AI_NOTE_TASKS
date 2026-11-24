@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "erd",
+  "quality": "showcase",
+  "specification": {
+    "path": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\candidate.json",
+    "sha256": "8cfe2c88db682e371d2c16c303a60a226e3c95350acc37f988819e5efaf96b08",
+    "bytes": 5080
+  },
+  "artifact": {
+    "path": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\database-schema.html",
+    "sha256": "fae5ceca92932d7432abec2f8ab6a3d79ec734c1d9fedecb559e89c3fb3a849e",
+    "bytes": 946114
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\database-schema.finalize.json",
+    "summaryReceipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\database-schema.finalize-summary.json",
+    "browserCheckReceipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\database-schema.browser-check.json"
+  },
+  "repositoryReferences": {
+    "status": "verified",
+    "revision": "8fb1a2725baba24afa9f2fcb24737e68ccaaf0cc",
+    "count": 4
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.3.0",
+    "availableVersion": "3.3.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-24T11:43:40.302Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4220,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "rel_notes_users",
+            "from": "notes",
+            "to": "users",
+            "label": "created by",
+            "collectionIndex": 1,
+            "artifactIndex": 2
+          },
+          "bends": 3,
+          "stretch": 1.068
+        }
+      ],
+      "truncated": false
+    },
+    "repair": "Advisory only: this mode places or routes these relationships itself. Report them; do not remove relationships or meaning to reduce crossings."
+  }
+}

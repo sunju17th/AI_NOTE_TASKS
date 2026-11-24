@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "ed32e09b-d9d8-489e-af43-bd421ebca0ac",
+  "status": "current",
+  "command": "deliver",
+  "type": "erd",
+  "input": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\candidate.json",
+  "output": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\erd-database-schema-20261124-184600\\database-schema.html",
+  "specification": {
+    "sha256": "8cfe2c88db682e371d2c16c303a60a226e3c95350acc37f988819e5efaf96b08",
+    "bytes": 5080
+  },
+  "artifact": {
+    "sha256": "fae5ceca92932d7432abec2f8ab6a3d79ec734c1d9fedecb559e89c3fb3a849e",
+    "bytes": 946114
+  }
+}

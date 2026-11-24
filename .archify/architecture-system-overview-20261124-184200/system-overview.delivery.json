@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "8d2f753e-1d53-42de-9acc-dc7850eecd85",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-system-overview-20261124-184200\\candidate.json",
+  "output": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-system-overview-20261124-184200\\system-overview.html",
+  "specification": {
+    "sha256": "e72401e1c5a970b932e7871b07a68e32adf76ba9e4ac5d38e815f4052c7f3a93",
+    "bytes": 8083
+  },
+  "artifact": {
+    "sha256": "eff43490dba84c23423988a229cc23b3c9e6ac898558d80f514123e92a88e72a",
+    "bytes": 948970
+  }
+}

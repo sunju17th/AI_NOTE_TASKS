@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\candidate.json",
+    "sha256": "c49ca2671c45a82e018698d6cf5ac22e88718a99568f5cb2563ded148fc14116",
+    "bytes": 6137
+  },
+  "artifact": {
+    "path": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\note-task-ai.html",
+    "sha256": "9888c9a40263fa45d5fadf954b47aea20a5575253af0e726b89da18aaf590964",
+    "bytes": 940994
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\note-task-ai.finalize.json",
+    "summaryReceipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\note-task-ai.finalize-summary.json",
+    "browserCheckReceipt": "D:\\src\\DuAn\\NOTE_TASK_AI\\.archify\\architecture-note-task-ai-20261124-191000\\note-task-ai.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.3.0",
+    "availableVersion": "3.3.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-24T11:43:40.302Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4658,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

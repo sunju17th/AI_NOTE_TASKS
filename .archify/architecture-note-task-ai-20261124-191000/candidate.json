@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "NOTE_TASK_AI System Architecture",
+    "output": ".archify/architecture-note-task-ai-20261124-191000/note-task-ai.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "auto"
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "User / Browser",
+      "sublabel": "Desktop & Mobile Web",
+      "tag": "HTTP :5173",
+      "explanation": "Người dùng tương tác qua giao diện web để quản lý ghi chú, nhiệm vụ và kiểm duyệt các gợi ý từ AI."
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Frontend Web App",
+      "sublabel": "React 19 + Tailwind v4",
+      "tag": "Nginx Alpine",
+      "explanation": "Ứng dụng Single Page Application phục vụ bởi Nginx, chứa các màn hình Auth, Categories, Notes, Tasks và popup xác nhận gợi ý AI."
+    },
+    {
+      "id": "backend_api",
+      "type": "backend",
+      "label": "API Gateway / Server",
+      "sublabel": "Express 5 :3000",
+      "tag": "Node.js 20",
+      "explanation": "Máy chủ REST API xử lý định tuyến, xác thực, validation đầu vào Zod và kiểm soát luồng nghiệp vụ."
+    },
+    {
+      "id": "auth_security",
+      "type": "security",
+      "label": "Auth & Security",
+      "sublabel": "JWT + Bcrypt",
+      "tag": "Multi-Tenant",
+      "explanation": "Băm mật khẩu Bcrypt (Salt 10), cấp token JWT 7 ngày, kiểm soát phân quyền dữ liệu cô lập giữa các user (trả 404 chống rò rỉ ID)."
+    },
+    {
+      "id": "ai_service",
+      "type": "backend",
+      "label": "AI Assistant Service",
+      "sublabel": "Context & Rule Engine",
+      "tag": "Stateless",
+      "explanation": "Điều phối phân loại ghi chú và đánh giá mức độ khẩn cấp task, nạp ngữ cảnh danh mục người dùng và áp dụng luật cứng deadline < 24h."
+    },
+    {
+      "id": "prisma_orm",
+      "type": "database",
+      "label": "Prisma ORM 7",
+      "sublabel": "@prisma/adapter-pg",
+      "tag": "Pool Client",
+      "explanation": "Tầng truy cập dữ liệu quan hệ tối ưu hóa connection pooling, quản lý migration và thực thi ràng buộc Cascade SetNull."
+    },
+    {
+      "id": "postgres_db",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "Primary DB :5432",
+      "tag": "AI_TASK_NOTE",
+      "explanation": "Hệ quản trị CSDL quan hệ lưu trữ thực thể Users, Categories, Notes, Tasks với native UUID và volume bền vững."
+    },
+    {
+      "id": "gemini_ai",
+      "type": "cloud",
+      "label": "Google Gemini AI",
+      "sublabel": "gemini-3.5-flash-lite",
+      "tag": "Cloud LLM",
+      "explanation": "Mô hình ngôn ngữ lớn từ Google AI Studio với cơ chế tự động thử lại (Retry) và fallback (2.5-flash, 3.1-flash-lite) khi quá tải."
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Docker Compose Environment (note-task-net)",
+      "wraps": ["frontend", "backend_api", "auth_security", "ai_service", "prisma_orm", "postgres_db"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Backend Subsystem (Node.js 20)",
+      "wraps": ["backend_api", "auth_security", "ai_service", "prisma_orm"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-client-fe",
+      "from": "client",
+      "to": "frontend",
+      "label": "HTTP :5173",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-fe-be",
+      "from": "frontend",
+      "to": "backend_api",
+      "label": "REST API Calls",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-be-auth",
+      "from": "backend_api",
+      "to": "auth_security",
+      "label": "Verify JWT Bearer",
+      "variant": "security"
+    },
+    {
+      "id": "conn-be-prisma",
+      "from": "backend_api",
+      "to": "prisma_orm",
+      "label": "CRUD Operations"
+    },
+    {
+      "id": "conn-prisma-pg",
+      "from": "prisma_orm",
+      "to": "postgres_db",
+      "label": "SQL Connection Pool",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-be-ai",
+      "from": "backend_api",
+      "to": "ai_service",
+      "label": "Classify / Assess",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-ai-context",
+      "from": "ai_service",
+      "to": "prisma_orm",
+      "label": "Read User Categories",
+      "variant": "dashed"
+    },
+    {
+      "id": "conn-ai-gemini",
+      "from": "ai_service",
+      "to": "gemini_ai",
+      "label": "GenerateContent JSON",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Giao diện & Trình bày (Frontend)",
+      "items": [
+        "React 19 SPA biên dịch bằng Vite và tạo kiểu với Tailwind CSS v4",
+        "Máy chủ Nginx Alpine siêu nhẹ (~20MB) phục vụ tài nguyên tĩnh và điều hướng SPA",
+        "Triết lý 'AI gợi ý, User xác nhận': hiển thị popup lý do để người dùng duyệt trước khi lưu"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Lõi dịch vụ & Dữ liệu (Backend & Database)",
+      "items": [
+        "Express 5 REST API kèm Zod validation và Global Error Handler chuẩn PRD 4.1",
+        "Prisma 7 ORM kết hợp PostgreSQL 16 connection pool tự động quản lý schema",
+        "Bảo mật đa người dùng (Multi-tenant): User khác truy cập dữ liệu bị trả 404",
+        "Ràng buộc toàn vẹn: Xóa danh mục thì note chuyển về category_id = null (onDelete: SetNull)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Trợ lý Trí tuệ nhân tạo (AI Assistant)",
+      "items": [
+        "Tích hợp Google Gemini 3.5 Flash Lite với cơ chế tự động thử lại (Retry) và Fallback",
+        "Kỹ thuật Context Injection đưa danh mục và mô tả của user vào prompt để phân loại chuẩn xác",
+        "Heuristic Rule Engine đảm bảo task còn dưới 24h luôn ở mức Urgent và dưới 6h là Critical"
+      ]
+    }
+  ]
+}
