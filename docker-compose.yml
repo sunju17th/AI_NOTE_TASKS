@@ -1,0 +1,80 @@
+services:
+  # ============================================================================
+  # 1. Cơ sở dữ liệu: PostgreSQL 16 Alpine
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: note-task-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-AI_TASK_NOTE}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-AI_TASK_NOTE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - note-task-net
+
+  # ============================================================================
+  # 2. Dịch vụ Backend API: Node.js 20 Express + Prisma ORM
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: note-task-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-AI_TASK_NOTE}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_for_docker_note_task_ai_2026}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - note-task-net
+
+  # ============================================================================
+  # 3. Dịch vụ Frontend: React 19 + Tailwind CSS v4 served by Nginx
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    container_name: note-task-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
+    networks:
+      - note-task-net
+
+# ==============================================================================
+# Lưu trữ dữ liệu lâu dài (Persistent Volumes)
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ==============================================================================
+# Mạng kết nối nội bộ giữa các container
+# ==============================================================================
+networks:
+  note-task-net:
+    driver: bridge
